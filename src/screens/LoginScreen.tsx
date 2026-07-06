@@ -1,32 +1,39 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { Button } from '../components/Button';
 import api from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 export const LoginScreen = ({ navigation }: any) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const { signIn } = useAuth();
 
   const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Erro', 'Por favor, preencha email e senha.');
+      return;
+    }
+    
     try {
       setLoading(true);
       // Calls the Identity Driver Service via API Gateway
-      // The exact endpoint depends on the implementation, for now let's use a dummy one
-      // based on the requirements for JWT issuing
-      const response = await api.post('/api/v1/auth/login', {
+      const response = await api.post('/users/login', {
         email,
         password
       });
       
-      // In a real app we would save the token here
-      // await AsyncStorage.setItem('jwt', response.data.token);
-      
-      Alert.alert('Sucesso', 'Login realizado com sucesso!');
-      navigation.replace('Home');
-    } catch (error) {
-      Alert.alert('Erro', 'Falha ao realizar login. Verifique se a infraestrutura está rodando.');
-      console.log('Login error:', error);
+      if (response.data && response.data.token) {
+        await signIn(response.data.token, response.data.user);
+        Alert.alert('Sucesso', 'Login realizado com sucesso!');
+        // No need to navigate manually, App.tsx conditionally renders Home
+      } else {
+        Alert.alert('Erro', 'Resposta inesperada do servidor.');
+      }
+    } catch (error: any) {
+      Alert.alert('Erro', 'Falha ao realizar login. Verifique suas credenciais.');
+      console.log('Login error:', error.response?.data || error.message);
     } finally {
       setLoading(false);
     }
@@ -58,11 +65,17 @@ export const LoginScreen = ({ navigation }: any) => {
           title={loading ? 'Carregando...' : 'Entrar'} 
           onPress={handleLogin} 
         />
+        
+        {/* Test bypass */}
         <Button 
-          title="Pular Login (Teste)" 
+          title="Pular Login (Modo Teste)" 
           variant="secondary"
-          onPress={() => navigation.replace('Home')} 
+          onPress={() => signIn('dummy-token', { id: 'test-id', name: 'Test User', email: 'test@velo.com', role: 'passenger' })} 
         />
+
+        <TouchableOpacity style={styles.registerLink} onPress={() => navigation.navigate('Register')}>
+          <Text style={styles.registerLinkText}>Não possui conta? Cadastre-se</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -97,4 +110,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     backgroundColor: '#F9F9F9',
   },
+  registerLink: {
+    alignItems: 'center',
+    marginTop: 16,
+    padding: 8,
+  },
+  registerLinkText: {
+    color: '#666',
+    fontSize: 16,
+    textDecorationLine: 'underline',
+  }
 });

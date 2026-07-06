@@ -1,17 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Alert, ScrollView } from 'react-native';
 import { Button } from '../components/Button';
 import api from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 export const HomeScreen = ({ navigation }: any) => {
+  const { user, signOut } = useAuth();
   const [status, setStatus] = useState<string>('Verificando status...');
   const [loading, setLoading] = useState(true);
+  const [approvalLoading, setApprovalLoading] = useState(false);
 
   const checkGatewayStatus = async () => {
     try {
       setLoading(true);
       // Attempting to hit the tracking-telemetry-service mock through the gateway
-      // Using /tracking/ as it is a valid route
       const response = await api.get('/tracking/'); 
       setStatus('Gateway Respondeu! Status: 200 OK');
     } catch (error: any) {
@@ -26,9 +28,27 @@ export const HomeScreen = ({ navigation }: any) => {
     checkGatewayStatus();
   }, []);
 
+  const handleSimulateApproval = async () => {
+    if (!user || !user.id) return;
+    try {
+      setApprovalLoading(true);
+      const response = await api.post(`/drivers/${user.id}/approve`);
+      Alert.alert('Sucesso', 'Motorista aprovado com sucesso!');
+    } catch (error: any) {
+      Alert.alert('Erro', 'Falha ao aprovar motorista.');
+      console.log('Approval error:', error.response?.data || error.message);
+    } finally {
+      setApprovalLoading(false);
+    }
+  };
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Dashboard</Text>
+    <ScrollView contentContainerStyle={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Olá, {user?.name?.split(' ')[0] || 'Usuário'}!</Text>
+        <Text style={styles.subtitle}>Papel: {user?.role}</Text>
+      </View>
+
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Status da Infraestrutura</Text>
         {loading ? (
@@ -37,6 +57,22 @@ export const HomeScreen = ({ navigation }: any) => {
           <Text style={styles.statusText}>{status}</Text>
         )}
       </View>
+
+      {user?.role === 'driver' && (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Painel do Motorista</Text>
+          <Text style={styles.statusText}>
+            Como motorista, sua conta pode precisar de aprovação para receber corridas.
+          </Text>
+          <View style={{ marginTop: 12 }}>
+            <Button 
+              title={approvalLoading ? 'Processando...' : 'Simular Aprovação (Admin)'} 
+              onPress={handleSimulateApproval} 
+              variant="secondary"
+            />
+          </View>
+        </View>
+      )}
       
       <View style={styles.infoContainer}>
         <Text style={styles.infoTitle}>Acessar Serviços:</Text>
@@ -45,21 +81,33 @@ export const HomeScreen = ({ navigation }: any) => {
         <Button title="Payment Finance (Pagar)" onPress={() => navigation.navigate('Payment')} />
         <Button title="Review Rating (Avaliar)" onPress={() => navigation.navigate('Review')} />
       </View>
-    </View>
+
+      <View style={{ marginTop: 32 }}>
+        <Button title="Sair da Conta" onPress={signOut} variant="secondary" />
+      </View>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flexGrow: 1,
     padding: 24,
     backgroundColor: '#fff',
+  },
+  header: {
+    marginBottom: 24,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 24,
     color: '#000',
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 4,
+    textTransform: 'capitalize',
   },
   card: {
     padding: 20,
@@ -75,9 +123,10 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   statusText: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#666',
-    marginTop: 8,
+    marginTop: 4,
+    lineHeight: 20,
   },
   infoContainer: {
     gap: 8,
@@ -86,9 +135,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginBottom: 8,
-  },
-  infoText: {
-    fontSize: 14,
-    color: '#444',
   },
 });
