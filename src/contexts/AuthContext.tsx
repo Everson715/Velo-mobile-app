@@ -8,7 +8,7 @@ export interface User {
   email: string;
   role: 'passenger' | 'driver' | 'admin';
   phone?: string;
-  status?: string; // For driver approval status, etc.
+  status?: string; 
 }
 
 interface AuthContextData {
@@ -32,10 +32,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const storedUser = await AsyncStorage.getItem('user');
 
         if (storedToken && storedUser) {
-          setUser(JSON.parse(storedUser));
+          const parsedUser = JSON.parse(storedUser);
+          console.log(`[AuthContext] Loading existing user session for: ${parsedUser.email} (Role: ${parsedUser.role})`);
+          
+          // Apply token to global API headers
+          api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+          setUser(parsedUser);
+        } else {
+          console.log('[AuthContext] No existing session found on app start.');
         }
       } catch (error) {
-        console.error('Error loading auth data', error);
+        console.error('[AuthContext] Error loading auth data:', error);
       } finally {
         setLoading(false);
       }
@@ -46,27 +53,40 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signIn = async (token: string, userData: User) => {
     try {
+      console.log(`[AuthContext] Saving session for: ${userData.email} (Role: ${userData.role})`);
+      
       await AsyncStorage.setItem('jwt', token);
       await AsyncStorage.setItem('user', JSON.stringify(userData));
+      
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       setUser(userData);
+      
+      console.log('[AuthContext] User signed in and state updated successfully.');
     } catch (error) {
-      console.error('Error storing auth data', error);
+      console.error('[AuthContext] Error storing auth data during sign in:', error);
+      throw error;
     }
   };
 
   const signOut = async () => {
     try {
+      console.log('[AuthContext] Signing out current user.');
       await AsyncStorage.removeItem('jwt');
       await AsyncStorage.removeItem('user');
+      delete api.defaults.headers.common['Authorization'];
       setUser(null);
+      console.log('[AuthContext] User signed out successfully.');
     } catch (error) {
-      console.error('Error removing auth data', error);
+      console.error('[AuthContext] Error removing auth data during sign out:', error);
     }
   };
 
   const updateUser = (updatedUser: User) => {
+    console.log(`[AuthContext] Updating user data for: ${updatedUser.email}`);
     setUser(updatedUser);
-    AsyncStorage.setItem('user', JSON.stringify(updatedUser)).catch(console.error);
+    AsyncStorage.setItem('user', JSON.stringify(updatedUser)).catch(error => {
+      console.error('[AuthContext] Error updating user in storage:', error);
+    });
   };
 
   return (

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity, KeyboardAvoidingView, Platform, SafeAreaView } from 'react-native';
 import { Button } from '../components/Button';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { colors, spacing, typography, borderRadius } from '../theme';
 
 export const LoginScreen = ({ navigation }: any) => {
   const [email, setEmail] = useState('');
@@ -18,19 +19,33 @@ export const LoginScreen = ({ navigation }: any) => {
     
     try {
       setLoading(true);
-      // Calls the Identity Driver Service via API Gateway
-      const response = await api.post('/users/login', {
+      
+      // 1. Authenticate and get the JWT
+      const loginResponse = await api.post('/auth/login', {
         email,
         password
       });
       
-      if (response.data && response.data.token) {
-        await signIn(response.data.token, response.data.user);
-        Alert.alert('Sucesso', 'Login realizado com sucesso!');
-        // No need to navigate manually, App.tsx conditionally renders Home
-      } else {
-        Alert.alert('Erro', 'Resposta inesperada do servidor.');
+      const token = loginResponse.data.access_token || loginResponse.data.token;
+      
+      if (!token) {
+        throw new Error('Token não retornado pelo servidor.');
       }
+
+      // Temporarily set the token on the API headers to fetch the user profile
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+      // 2. Fetch the user profile using the token
+      const meResponse = await api.get('/me');
+      const userData = meResponse.data.user;
+
+      if (!userData) {
+        throw new Error('Não foi possível carregar o perfil do usuário.');
+      }
+
+      // 3. Complete sign in
+      await signIn(token, userData);
+
     } catch (error: any) {
       Alert.alert('Erro', 'Falha ao realizar login. Verifique suas credenciais.');
       console.log('Login error:', error.response?.data || error.message);
@@ -40,84 +55,114 @@ export const LoginScreen = ({ navigation }: any) => {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Velo App</Text>
-      <Text style={styles.subtitle}>Faça login para continuar</Text>
-      
-      <View style={styles.form}>
-        <TextInput
-          style={styles.input}
-          placeholder="E-mail"
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Senha"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.container}
+      >
+        <View style={styles.header}>
+          <Text style={styles.title}>Velo<Text style={styles.titleHighlight}>.</Text></Text>
+          <Text style={styles.subtitle}>Welcome back, speed racer.</Text>
+        </View>
         
-        <Button 
-          title={loading ? 'Carregando...' : 'Entrar'} 
-          onPress={handleLogin} 
-        />
-        
-        {/* Test bypass */}
-        <Button 
-          title="Pular Login (Modo Teste)" 
-          variant="secondary"
-          onPress={() => signIn('dummy-token', { id: 'test-id', name: 'Test User', email: 'test@velo.com', role: 'passenger' })} 
-        />
+        <View style={styles.form}>
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="E-mail"
+              placeholderTextColor={colors.textMuted}
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
+          </View>
 
-        <TouchableOpacity style={styles.registerLink} onPress={() => navigation.navigate('Register')}>
-          <Text style={styles.registerLinkText}>Não possui conta? Cadastre-se</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="Password"
+              placeholderTextColor={colors.textMuted}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+            />
+          </View>
+          
+          <Button 
+            title={loading ? 'Authenticating...' : 'Sign In'} 
+            onPress={handleLogin} 
+            disabled={loading}
+          />
+          
+          {/* Test bypass */}
+          <Button 
+            title="Bypass Login (Test Mode)" 
+            variant="outline"
+            onPress={() => signIn('dummy-token', { id: 'test-id', name: 'Test User', email: 'test@velo.com', role: 'passenger' } as any)} 
+          />
+
+          <TouchableOpacity style={styles.registerLink} onPress={() => navigation.navigate('Register')}>
+            <Text style={styles.registerLinkText}>Don't have an account? <Text style={styles.registerLinkHighlight}>Sign up</Text></Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   container: {
     flex: 1,
     justifyContent: 'center',
-    padding: 24,
-    backgroundColor: '#fff',
+    padding: spacing.xl,
+    backgroundColor: colors.background,
+  },
+  header: {
+    marginBottom: spacing.xxl,
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    color: '#000',
+    ...typography.h1,
+    fontSize: 48,
+    marginBottom: spacing.s,
+    letterSpacing: -1,
+  },
+  titleHighlight: {
+    color: colors.primary,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 32,
+    ...typography.bodyMuted,
+    fontSize: 18,
   },
   form: {
-    gap: 16,
+    gap: spacing.m,
+  },
+  inputContainer: {
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.m,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: spacing.m,
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-    padding: 16,
-    borderRadius: 8,
+    padding: spacing.m,
+    color: colors.text,
     fontSize: 16,
-    backgroundColor: '#F9F9F9',
   },
   registerLink: {
     alignItems: 'center',
-    marginTop: 16,
-    padding: 8,
+    marginTop: spacing.l,
+    padding: spacing.s,
   },
   registerLinkText: {
-    color: '#666',
-    fontSize: 16,
-    textDecorationLine: 'underline',
+    ...typography.bodyMuted,
+  },
+  registerLinkHighlight: {
+    color: colors.primary,
+    fontWeight: '600',
   }
 });

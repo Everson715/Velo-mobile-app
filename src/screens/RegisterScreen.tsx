@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity, ScrollView, SafeAreaView, KeyboardAvoidingView, Platform } from 'react-native';
 import { Button } from '../components/Button';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { colors, spacing, typography, borderRadius } from '../theme';
 
 export const RegisterScreen = ({ navigation }: any) => {
   const [name, setName] = useState('');
@@ -38,15 +39,9 @@ export const RegisterScreen = ({ navigation }: any) => {
 
       const response = await api.post('/users/register', payload);
       
-      // Assume the response includes { token, user: { id, name, email, role, phone } }
       if (response.data && response.data.token) {
         await signIn(response.data.token, response.data.user);
-        Alert.alert('Sucesso', 'Cadastro realizado com sucesso!');
-        // No need to navigate manually if App.tsx listens to user state, 
-        // but if it's manual:
-        // navigation.replace('Home');
       } else {
-        // If api doesn't return token immediately, redirect to login
         Alert.alert('Sucesso', 'Cadastro realizado! Faça login para continuar.');
         navigation.navigate('Login');
       }
@@ -59,144 +54,182 @@ export const RegisterScreen = ({ navigation }: any) => {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Criar Conta</Text>
-      <Text style={styles.subtitle}>Junte-se à Velo</Text>
-      
-      <View style={styles.form}>
-        <TextInput
-          style={styles.input}
-          placeholder="Nome completo *"
-          value={name}
-          onChangeText={setName}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="E-mail *"
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Telefone"
-          value={phone}
-          onChangeText={setPhone}
-          keyboardType="phone-pad"
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Senha *"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Confirmar Senha *"
-          value={passwordConfirmation}
-          onChangeText={setPasswordConfirmation}
-          secureTextEntry
-        />
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+      >
+        <ScrollView contentContainerStyle={styles.container}>
+          <View style={styles.header}>
+            <Text style={styles.title}>Join Velo<Text style={styles.titleHighlight}>.</Text></Text>
+            <Text style={styles.subtitle}>Create an account to start your journey.</Text>
+          </View>
+          
+          <View style={styles.form}>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                placeholder="Full Name *"
+                placeholderTextColor={colors.textMuted}
+                value={name}
+                onChangeText={setName}
+              />
+            </View>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                placeholder="E-mail *"
+                placeholderTextColor={colors.textMuted}
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+              />
+            </View>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                placeholder="Phone"
+                placeholderTextColor={colors.textMuted}
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
+              />
+            </View>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                placeholder="Password *"
+                placeholderTextColor={colors.textMuted}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+              />
+            </View>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                placeholder="Confirm Password *"
+                placeholderTextColor={colors.textMuted}
+                value={passwordConfirmation}
+                onChangeText={setPasswordConfirmation}
+                secureTextEntry
+              />
+            </View>
 
-        <Text style={styles.roleLabel}>Eu quero ser um:</Text>
-        <View style={styles.roleContainer}>
-          <TouchableOpacity 
-            style={[styles.roleButton, role === 'passenger' && styles.roleButtonActive]}
-            onPress={() => setRole('passenger')}
-          >
-            <Text style={[styles.roleText, role === 'passenger' && styles.roleTextActive]}>Passageiro</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.roleButton, role === 'driver' && styles.roleButtonActive]}
-            onPress={() => setRole('driver')}
-          >
-            <Text style={[styles.roleText, role === 'driver' && styles.roleTextActive]}>Motorista</Text>
-          </TouchableOpacity>
-        </View>
-        
-        <Button 
-          title={loading ? 'Cadastrando...' : 'Cadastrar'} 
-          onPress={handleRegister} 
-        />
-        
-        <TouchableOpacity style={styles.loginLink} onPress={() => navigation.navigate('Login')}>
-          <Text style={styles.loginLinkText}>Já possui uma conta? Faça Login</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+            <Text style={styles.roleLabel}>I want to be a:</Text>
+            <View style={styles.roleContainer}>
+              <TouchableOpacity 
+                style={[styles.roleButton, role === 'passenger' && styles.roleButtonActive]}
+                onPress={() => setRole('passenger')}
+              >
+                <Text style={[styles.roleText, role === 'passenger' && styles.roleTextActive]}>Passenger</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.roleButton, role === 'driver' && styles.roleButtonActive]}
+                onPress={() => setRole('driver')}
+              >
+                <Text style={[styles.roleText, role === 'driver' && styles.roleTextActive]}>Driver</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <Button 
+              title={loading ? 'Creating Account...' : 'Sign Up'} 
+              onPress={handleRegister} 
+              disabled={loading}
+            />
+            
+            <TouchableOpacity style={styles.loginLink} onPress={() => navigation.navigate('Login')}>
+              <Text style={styles.loginLinkText}>Already have an account? <Text style={styles.loginLinkHighlight}>Sign in</Text></Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   container: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: 24,
-    backgroundColor: '#fff',
+    padding: spacing.xl,
+    backgroundColor: colors.background,
+  },
+  header: {
+    marginBottom: spacing.xl,
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    color: '#000',
+    ...typography.h1,
+    fontSize: 40,
+    marginBottom: spacing.s,
+    letterSpacing: -1,
+  },
+  titleHighlight: {
+    color: colors.primary,
   },
   subtitle: {
+    ...typography.bodyMuted,
     fontSize: 16,
-    color: '#666',
-    marginBottom: 24,
   },
   form: {
-    gap: 16,
+    gap: spacing.m,
+  },
+  inputContainer: {
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.m,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-    padding: 16,
-    borderRadius: 8,
+    padding: spacing.m,
+    color: colors.text,
     fontSize: 16,
-    backgroundColor: '#F9F9F9',
   },
   roleLabel: {
-    fontSize: 16,
+    ...typography.body,
     fontWeight: '600',
-    color: '#333',
-    marginTop: 8,
+    marginTop: spacing.s,
   },
   roleContainer: {
     flexDirection: 'row',
-    gap: 16,
-    marginBottom: 8,
+    gap: spacing.m,
+    marginBottom: spacing.m,
   },
   roleButton: {
     flex: 1,
-    padding: 12,
+    padding: spacing.m,
     borderWidth: 1,
-    borderColor: '#E5E5E5',
-    borderRadius: 8,
+    borderColor: colors.border,
+    borderRadius: borderRadius.m,
     alignItems: 'center',
+    backgroundColor: colors.card,
   },
   roleButtonActive: {
-    borderColor: '#000',
-    backgroundColor: '#000',
+    borderColor: colors.primary,
+    backgroundColor: 'rgba(0, 229, 255, 0.1)',
   },
   roleText: {
-    fontSize: 16,
-    color: '#666',
+    ...typography.bodyMuted,
   },
   roleTextActive: {
-    color: '#fff',
+    color: colors.primary,
     fontWeight: 'bold',
   },
   loginLink: {
     alignItems: 'center',
-    marginTop: 16,
-    padding: 8,
+    marginTop: spacing.s,
+    padding: spacing.s,
   },
   loginLinkText: {
-    color: '#666',
-    fontSize: 16,
-    textDecorationLine: 'underline',
+    ...typography.bodyMuted,
+  },
+  loginLinkHighlight: {
+    color: colors.primary,
+    fontWeight: '600',
   }
 });

@@ -15,17 +15,30 @@ const api = axios.create({
   },
 });
 
-// Interceptor to add JWT token if available
+// Interceptor to add JWT token if available and log requests
 api.interceptors.request.use(async (config) => {
   try {
     const token = await AsyncStorage.getItem('jwt');
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url}`, config.data ? 'Data: ' + JSON.stringify(config.data) : '');
   } catch (error) {
     console.error('Error fetching token for request interceptor:', error);
   }
   return config;
+}, (error) => {
+  console.error('[API Request Error]', error);
+  return Promise.reject(error);
+});
+
+// Interceptor to log responses
+api.interceptors.response.use((response) => {
+  console.log(`[API Response] ${response.config.method?.toUpperCase()} ${response.config.url} - Status: ${response.status}`);
+  return response;
+}, (error) => {
+  console.error(`[API Response Error] ${error.config?.method?.toUpperCase()} ${error.config?.url} - Status: ${error.response?.status}`, error.message);
+  return Promise.reject(error);
 });
 
 export default api;
